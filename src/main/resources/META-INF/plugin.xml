@@ -3,19 +3,20 @@
     <idea-version since-build="253" />
     <!-- Unique identifier of the plugin. It should be FQN. It cannot be changed between the plugin versions. -->
     <id>paol0b.AzureDevOps</id>
-    <version>4.1</version>
+    <version>4.1.1-focused.1</version>
 
     <!-- Public plugin name should be written in Title Case.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-name -->
-    <name>Azure DevOps Integration</name>
+    <name>Azure DevOps Integration (Focused)</name>
 
     <!-- A displayed Vendor name or Organization ID displayed on the Plugins Page. -->
-    <vendor url="https://github.com/paol0b">Paolo Bertinetti</vendor>
+    <vendor url="https://github.com/paol0b/AzureDevOps">Paolo Bertinetti — focused private fork</vendor>
 
     <!-- Description of the plugin displayed on the Plugin Page and IDE Plugin Manager.
          Guidelines: https://plugins.jetbrains.com/docs/marketplace/best-practices-for-listing.html#plugin-description -->
     <description><![CDATA[
         <h2>Azure DevOps Integration for JetBrains IDEs</h2>
+        <p><b>Focused private fork:</b> correct user-centric PR filters and always-visible inline review threads, based on upstream 4.1.</p>
         <p>The complete Azure DevOps experience without leaving your editor. Manage pull requests, work items, pipelines, and code reviews — all from your JetBrains IDE.</p>
 
         <h3>✨ Core Features:</h3>

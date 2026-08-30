@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "paol0b"
-version = "4.1"
+version = "4.1.1-focused.1"
 
 repositories {
     mavenCentral()
@@ -39,6 +39,15 @@ intellijPlatform {
         }
 
         changeNotes = """
+            <h2>Version 4.1.1-focused.1 - Focused PR Review</h2>
+            <ul>
+                <li><b>Relevant to me by default</b> – Fetches PRs created by or assigned to the current user using Azure DevOps server-side criteria.</li>
+                <li><b>Correct assignment filters</b> – "Assigned to you" no longer means "already reviewed"; "Review requests" shows assignments that still need your vote.</li>
+                <li><b>Visible inline threads</b> – Existing PR comments render as persistent cards below their diff lines and open for reply/resolve when clicked.</li>
+            </ul>
+
+            <hr>
+
             <h2>Version 4.1 - Clone Dialog Overhaul</h2>
 
             <h3>Performance</h3>
