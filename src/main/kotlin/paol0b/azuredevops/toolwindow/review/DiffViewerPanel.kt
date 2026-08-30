@@ -14,10 +14,12 @@ import com.intellij.openapi.diagnostic.Logger
 import com.intellij.openapi.editor.Document
 import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorFactory
+import com.intellij.openapi.editor.Inlay
 import com.intellij.openapi.editor.LogicalPosition
 import com.intellij.openapi.editor.event.EditorFactoryEvent
 import com.intellij.openapi.editor.event.EditorFactoryListener
 import com.intellij.openapi.editor.event.EditorMouseEvent
+import com.intellij.openapi.editor.event.EditorMouseListener
 import com.intellij.openapi.editor.event.EditorMouseMotionListener
 import com.intellij.openapi.editor.markup.GutterIconRenderer
 import com.intellij.openapi.editor.markup.HighlighterLayer
@@ -85,7 +87,8 @@ class DiffViewerPanel(
 
     // Highlighters & inlays for cleanup
     private val activeHighlighters = mutableListOf<RangeHighlighter>()
-    private val activeInlays = mutableListOf<com.intellij.openapi.editor.Inlay<*>>()
+    private val activeInlays = mutableListOf<Inlay<*>>()
+    private val threadByInlay = mutableMapOf<Inlay<*>, InlineThreadTarget>()
 
     // Hover "+" gutter state — one per editor
     private var hoverHighlighterBase: RangeHighlighter? = null
@@ -127,6 +130,18 @@ class DiffViewerPanel(
                             return
                         }
                         showHoverAddIcon(editor, line)
+                    }
+                })
+
+                // A click anywhere on the always-visible comment card opens the existing
+                // interactive thread UI (reply + resolve). The gutter bubble remains as a
+                // second, familiar entry point.
+                editor.addEditorMouseListener(object : EditorMouseListener {
+                    override fun mouseClicked(e: EditorMouseEvent) {
+                        val inlay = editor.inlayModel.getElementAt(e.mouseEvent.point) ?: return
+                        val target = threadByInlay[inlay] ?: return
+                        showCommentThreadPopup(editor, target.thread, target.lineIndex)
+                        e.mouseEvent.consume()
                     }
                 })
             }
@@ -241,9 +256,8 @@ class DiffViewerPanel(
         val filePath = currentChange?.effectivePath()?.takeIf { it.isNotBlank() } ?: return
 
         val relevantThreads = cachedThreads.filter { thread ->
-            val ctx = thread.pullRequestThreadContext ?: thread.threadContext
-            val isLeftSide = ctx?.leftFileStart != null && ctx.rightFileStart == null
-            isLeftSide == isBase
+            val ctx = thread.getPositionContext() ?: return@filter false
+            if (isBase) ctx.leftFileStart != null else ctx.rightFileStart != null
         }
 
         logger.info("Adding ${relevantThreads.size} inline comments to ${if (isBase) "base" else "changes"} editor for $filePath")
@@ -257,17 +271,23 @@ class DiffViewerPanel(
      * Add a persistent comment bubble gutter icon + line highlight for an existing thread.
      */
     private fun addGutterIconForThread(editor: Editor, thread: CommentThread) {
-        val ctx = thread.pullRequestThreadContext ?: thread.threadContext ?: return
-        val startLine = ctx.rightFileStart?.line ?: ctx.leftFileStart?.line ?: return
-        val endLine = ctx.rightFileEnd?.line ?: ctx.leftFileEnd?.line ?: startLine
+        // Azure DevOps commonly puts iteration metadata in pullRequestThreadContext and
+        // the actual file/line position in threadContext. 4.1 preferred the former merely
+        // because it was non-null, then returned early because it had no line number.
+        val ctx = thread.getPositionContext() ?: return
+        val isBase = editor.document == baseDocument
+        val startLine = if (isBase) ctx.leftFileStart?.line else ctx.rightFileStart?.line
+        val endLine = if (isBase) ctx.leftFileEnd?.line else ctx.rightFileEnd?.line
+        if (startLine == null) return
+        val effectiveEndLine = endLine ?: startLine
 
-        val startLine0 = (startLine - 1).coerceIn(0, editor.document.lineCount - 1)
-        val endLine0 = (endLine - 1).coerceIn(0, editor.document.lineCount - 1)
-
-        if (startLine0 >= editor.document.lineCount) {
+        if (startLine !in 1..editor.document.lineCount) {
             logger.warn("Line $startLine out of bounds for thread ${thread.id}")
             return
         }
+
+        val startLine0 = (startLine - 1).coerceIn(0, editor.document.lineCount - 1)
+        val endLine0 = (effectiveEndLine - 1).coerceIn(0, editor.document.lineCount - 1)
 
         val startOffset = editor.document.getLineStartOffset(startLine0)
         val endOffset = editor.document.getLineEndOffset(endLine0)
@@ -314,7 +334,21 @@ class DiffViewerPanel(
         }
 
         activeHighlighters.add(highlighter)
-        logger.info("Added comment gutter icon for thread ${thread.id} at lines $startLine-$endLine")
+
+        // Render the first comment directly below the affected source line. This is a
+        // read-only preview; clicking it opens InlineCommentComponent for the full thread.
+        val inlay = editor.inlayModel.addBlockElement(
+            endOffset,
+            true,
+            false,
+            0,
+            InlineCommentInlayRenderer(editor, thread)
+        )
+        if (inlay != null) {
+            activeInlays.add(inlay)
+            threadByInlay[inlay] = InlineThreadTarget(thread, startLine0)
+        }
+        logger.info("Added comment gutter icon for thread ${thread.id} at lines $startLine-$effectiveEndLine")
     }
 
     /**
@@ -527,9 +561,15 @@ class DiffViewerPanel(
     private fun clearInlays() {
         activeInlays.forEach { if (it.isValid) Disposer.dispose(it) }
         activeInlays.clear()
+        threadByInlay.clear()
         activeHighlighters.forEach { if (it.isValid) it.dispose() }
         activeHighlighters.clear()
     }
+
+    private data class InlineThreadTarget(
+        val thread: CommentThread,
+        val lineIndex: Int
+    )
 
     // ==================================================================
     //  UI helpers
