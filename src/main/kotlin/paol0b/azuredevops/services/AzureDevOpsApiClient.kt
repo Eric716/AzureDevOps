@@ -660,7 +660,7 @@ The plugin will automatically use your authenticated account for this repository
         val config = requireValidConfig()
         val configuredPageSize = effectivePageSize()
         val collected = mutableListOf<PullRequest>()
-        val seenIds = HashSet<Int>()
+        val seenKeys = HashSet<String>()
         val maxHops = (maxTotal / configuredPageSize) * 2 + 5
         var hops = 0
 
@@ -676,7 +676,7 @@ The plugin will automatically use your authenticated account for this repository
                 val page = gson.fromJson(response, PullRequestListResponse::class.java).value
                 if (page.isEmpty()) break
 
-                val freshOnly = page.filter { seenIds.add(it.pullRequestId) }
+                val freshOnly = page.filter { seenKeys.add(it.stableOrganizationKey()) }
                 if (freshOnly.isEmpty()) break
                 collected.addAll(freshOnly)
 

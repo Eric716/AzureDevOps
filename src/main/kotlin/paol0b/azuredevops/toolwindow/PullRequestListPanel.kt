@@ -17,6 +17,7 @@ import paol0b.azuredevops.actions.CompletePullRequestAction
 import paol0b.azuredevops.actions.ConvertToDraftPullRequestAction
 import paol0b.azuredevops.actions.SetAutoCompletePullRequestAction
 import paol0b.azuredevops.model.PullRequest
+import paol0b.azuredevops.model.stableOrganizationKey
 import paol0b.azuredevops.services.AvatarService
 import paol0b.azuredevops.services.AzureDevOpsApiClient
 import paol0b.azuredevops.services.AzureDevOpsConfigService

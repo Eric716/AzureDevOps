@@ -9,6 +9,7 @@ import paol0b.azuredevops.model.PullRequest
 import paol0b.azuredevops.model.PullRequestStatus
 import paol0b.azuredevops.model.Repository
 import paol0b.azuredevops.model.Reviewer
+import paol0b.azuredevops.model.stableOrganizationKey
 import paol0b.azuredevops.services.PullRequestQueryCriteria
 import paol0b.azuredevops.toolwindow.filters.PullRequestSearchValue
 

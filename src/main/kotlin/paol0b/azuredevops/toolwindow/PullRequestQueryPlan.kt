@@ -47,10 +47,3 @@ internal fun PullRequest.isAwaitingReviewFrom(currentUserId: String?): Boolean {
     val directReviewer = reviewers.orEmpty().firstOrNull { it.id == currentUserId }
     return directReviewer == null || directReviewer.vote == null || directReviewer.vote == 0
 }
-
-/** PR ids are only unique inside a repository, not across an organization. */
-internal fun PullRequest.stableOrganizationKey(): String {
-    val projectKey = repository?.project?.id ?: repository?.project?.name.orEmpty()
-    val repositoryKey = repository?.id ?: repository?.name.orEmpty()
-    return "$projectKey/$repositoryKey/$pullRequestId"
-}
