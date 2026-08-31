@@ -4,6 +4,7 @@ import com.intellij.openapi.editor.Editor
 import com.intellij.openapi.editor.EditorCustomElementRenderer
 import com.intellij.openapi.editor.Inlay
 import com.intellij.openapi.editor.colors.EditorFontType
+import com.intellij.openapi.editor.impl.FontFallbackIterator
 import com.intellij.openapi.editor.markup.TextAttributes
 import com.intellij.ui.JBColor
 import com.intellij.util.ui.GraphicsUtil
@@ -15,6 +16,9 @@ import java.awt.Graphics
 import java.awt.Graphics2D
 import java.awt.Rectangle
 import java.awt.RenderingHints
+import java.awt.font.FontRenderContext
+import java.awt.font.TextLayout
+import kotlin.math.ceil
 
 /** Compact, always-visible preview for one Azure DevOps inline comment thread. */
 internal class InlineCommentInlayRenderer(
@@ -39,9 +43,10 @@ internal class InlineCommentInlayRenderer(
     private val lineGap = JBUI.scale(3)
 
     override fun calcWidthInPixels(inlay: Inlay<*>): Int {
-        val font = editor.colorsScheme.getFont(EditorFontType.PLAIN)
-        val metrics = editor.contentComponent.getFontMetrics(font)
-        val widest = (listOf(header) + bodyLines).maxOfOrNull(metrics::stringWidth) ?: 0
+        val fontRenderContext = componentFontRenderContext()
+        val widest = styledLines().maxOfOrNull { line ->
+            ceil(textWidth(line.text, line.style, fontRenderContext)).toInt()
+        } ?: 0
         val desired = widest + horizontalPadding * 2
         val available = (editor.scrollingModel.visibleArea.width - JBUI.scale(48))
             .coerceAtLeast(JBUI.scale(320))
@@ -49,9 +54,11 @@ internal class InlineCommentInlayRenderer(
     }
 
     override fun calcHeightInPixels(inlay: Inlay<*>): Int {
-        val font = editor.colorsScheme.getFont(EditorFontType.PLAIN)
-        val lineHeight = editor.contentComponent.getFontMetrics(font).height
-        return verticalPadding * 2 + lineHeight * (1 + bodyLines.size) + lineGap * bodyLines.size
+        val fontRenderContext = componentFontRenderContext()
+        val lines = styledLines()
+        return verticalPadding * 2 +
+            lines.sumOf { lineMetrics(it.text, it.style, fontRenderContext).height } +
+            lineGap * (lines.size - 1).coerceAtLeast(0)
     }
 
     override fun paint(
@@ -75,21 +82,16 @@ internal class InlineCommentInlayRenderer(
             g2.color = if (active) ACTIVE_BORDER else RESOLVED_BORDER
             g2.drawRoundRect(x, y, width - 1, height - 1, JBUI.scale(8), JBUI.scale(8))
 
-            val plainFont = editor.colorsScheme.getFont(EditorFontType.PLAIN)
-            val boldFont = plainFont.deriveFont(Font.BOLD)
-            val lineHeight = g2.getFontMetrics(plainFont).height
-            var baseline = y + verticalPadding + g2.getFontMetrics(boldFont).ascent
             val textX = x + horizontalPadding
-
-            g2.font = boldFont
-            g2.color = if (active) ACTIVE_HEADER else RESOLVED_HEADER
-            drawClipped(g2, header, textX, baseline, width - horizontalPadding * 2)
-
-            g2.font = plainFont
-            g2.color = BODY_FOREGROUND
-            bodyLines.forEach { line ->
-                baseline += lineHeight + lineGap
-                drawClipped(g2, line, textX, baseline, width - horizontalPadding * 2)
+            val maxTextWidth = width - horizontalPadding * 2
+            var lineTop = y + verticalPadding
+            styledLines().forEachIndexed { index, line ->
+                val metrics = lineMetrics(line.text, line.style, g2.fontRenderContext)
+                val baseline = lineTop + metrics.ascent
+                g2.color = line.color
+                drawClipped(g2, line.text, textX, baseline, maxTextWidth, line.style)
+                lineTop += metrics.height
+                if (index < bodyLines.size) lineTop += lineGap
             }
         } finally {
             g2.dispose()
@@ -102,7 +104,7 @@ internal class InlineCommentInlayRenderer(
             val content = comment.content.orEmpty()
                 .replace(Regex("\\s+"), " ")
                 .trim()
-                .let { if (it.length > MAX_CONTENT_LENGTH) it.take(MAX_CONTENT_LENGTH - 1) + "…" else it }
+                .let { truncateAtGraphemeBoundary(it, MAX_CONTENT_LENGTH) }
             "$author: $content"
         }.toMutableList()
 
@@ -112,20 +114,107 @@ internal class InlineCommentInlayRenderer(
         return visible
     }
 
-    private fun drawClipped(g: Graphics2D, text: String, x: Int, baseline: Int, maxWidth: Int) {
-        val metrics = g.fontMetrics
-        if (metrics.stringWidth(text) <= maxWidth) {
-            g.drawString(text, x, baseline)
+    private fun styledLines(): List<StyledLine> =
+        listOf(
+            StyledLine(
+                header,
+                Font.BOLD,
+                if (active) ACTIVE_HEADER else RESOLVED_HEADER
+            )
+        ) + bodyLines.map { StyledLine(it, Font.PLAIN, BODY_FOREGROUND) }
+
+    private fun drawClipped(
+        g: Graphics2D,
+        text: String,
+        x: Int,
+        baseline: Int,
+        maxWidth: Int,
+        style: Int
+    ) {
+        if (text.isEmpty() || maxWidth <= 0) return
+
+        if (textWidth(text, style, g.fontRenderContext) <= maxWidth) {
+            drawText(g, text, x, baseline, style)
             return
         }
 
+        val boundaries = graphemeBoundaries(text)
+        var bestEnd = 0
         var low = 0
-        var high = text.length
-        while (low < high) {
-            val mid = (low + high + 1) / 2
-            if (metrics.stringWidth(text.take(mid) + "…") <= maxWidth) low = mid else high = mid - 1
+        var high = boundaries.lastIndex
+        while (low <= high) {
+            val middle = (low + high) ushr 1
+            val end = boundaries[middle]
+            if (textWidth(text.substring(0, end) + ELLIPSIS, style, g.fontRenderContext) <= maxWidth) {
+                bestEnd = end
+                low = middle + 1
+            } else {
+                high = middle - 1
+            }
         }
-        g.drawString(text.take(low) + "…", x, baseline)
+
+        val clipped = if (bestEnd > 0) text.substring(0, bestEnd) + ELLIPSIS else ELLIPSIS
+        if (textWidth(clipped, style, g.fontRenderContext) <= maxWidth) {
+            drawText(g, clipped, x, baseline, style)
+        }
+    }
+
+    private fun drawText(g: Graphics2D, text: String, x: Int, baseline: Int, style: Int) {
+        var cursorX = x.toFloat()
+        fontRuns(text, style, g.fontRenderContext).forEach { run ->
+            val layout = TextLayout(text.substring(run.start, run.end), run.font, g.fontRenderContext)
+            layout.draw(g, cursorX, baseline.toFloat())
+            cursorX += layout.advance
+        }
+    }
+
+    private fun textWidth(text: String, style: Int, fontRenderContext: FontRenderContext): Float =
+        fontRuns(text, style, fontRenderContext).sumOf { run ->
+            TextLayout(text.substring(run.start, run.end), run.font, fontRenderContext).advance.toDouble()
+        }.toFloat()
+
+    private fun lineMetrics(text: String, style: Int, fontRenderContext: FontRenderContext): PixelLineMetrics {
+        val source = text.ifEmpty { " " }
+        val runs = fontRuns(source, style, fontRenderContext)
+        var maxAscent = 0f
+        var maxDescentAndLeading = 0f
+        runs.forEach { run ->
+            val layout = TextLayout(source.substring(run.start, run.end), run.font, fontRenderContext)
+            maxAscent = maxOf(maxAscent, layout.ascent)
+            maxDescentAndLeading = maxOf(maxDescentAndLeading, layout.descent + layout.leading)
+        }
+        return PixelLineMetrics(
+            ascent = ceil(maxAscent).toInt(),
+            descentAndLeading = ceil(maxDescentAndLeading).toInt()
+        )
+    }
+
+    private fun fontRuns(text: String, style: Int, fontRenderContext: FontRenderContext): List<FontRun> {
+        if (text.isEmpty()) return emptyList()
+
+        val iterator = FontFallbackIterator()
+        iterator.setPreferredFonts(editor.colorsScheme.fontPreferences)
+        iterator.setFontStyle(style)
+        iterator.setFontRenderContext(fontRenderContext)
+        iterator.start(text, 0, text.length)
+
+        val runs = mutableListOf<FontRun>()
+        while (!iterator.atEnd()) {
+            runs += FontRun(iterator.start, iterator.end, iterator.font)
+            iterator.advance()
+        }
+        return runs
+    }
+
+    private fun componentFontRenderContext(): FontRenderContext =
+        editor.contentComponent
+            .getFontMetrics(editor.colorsScheme.getFont(EditorFontType.PLAIN))
+            .fontRenderContext
+
+    private data class StyledLine(val text: String, val style: Int, val color: Color)
+    private data class FontRun(val start: Int, val end: Int, val font: Font)
+    private data class PixelLineMetrics(val ascent: Int, val descentAndLeading: Int) {
+        val height: Int = ascent + descentAndLeading
     }
 
     private companion object {

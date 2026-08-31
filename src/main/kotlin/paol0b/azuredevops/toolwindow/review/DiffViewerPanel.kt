@@ -232,7 +232,7 @@ class DiffViewerPanel(
         component.preferredSize = Dimension(480, component.preferredSize.height.coerceAtLeast(150))
 
         val popup = JBPopupFactory.getInstance()
-            .createComponentPopupBuilder(component, component)
+            .createComponentPopupBuilder(component, component.preferredFocusComponent)
             .setMovable(false)
             .setResizable(false)
             .setRequestFocus(true)
@@ -245,6 +245,7 @@ class DiffViewerPanel(
         // Position below the target line
         val lineY = editor.logicalPositionToXY(LogicalPosition(line0based + 1, 0))
         popup.show(RelativePoint(editor.contentComponent, Point(40, lineY.y)))
+        component.requestInputFocus()
     }
 
     // ==================================================================
@@ -357,6 +358,7 @@ class DiffViewerPanel(
      */
     private fun showCommentThreadPopup(editor: Editor, thread: CommentThread, lineIndex: Int) {
         val commentComponent = InlineCommentComponent(
+            project = project,
             thread = thread,
             apiClient = apiClient,
             pullRequestId = pullRequestId,
@@ -372,7 +374,7 @@ class DiffViewerPanel(
         )
 
         val popup = JBPopupFactory.getInstance()
-            .createComponentPopupBuilder(commentComponent, commentComponent)
+            .createComponentPopupBuilder(commentComponent, commentComponent.preferredFocusComponent)
             .setMovable(true)
             .setResizable(true)
             .setRequestFocus(true)
@@ -382,6 +384,7 @@ class DiffViewerPanel(
 
         val lineY = editor.logicalPositionToXY(LogicalPosition(lineIndex + 1, 0))
         popup.show(RelativePoint(editor.contentComponent, Point(40, lineY.y)))
+        commentComponent.requestInputFocus()
     }
 
     // ==================================================================
