@@ -347,11 +347,16 @@ class PrReviewTabPanel(
             // The remaining requests enrich the review tab, but none is required to browse
             // changed files. Handle each one independently because permissions and transient
             // Azure DevOps failures can differ between these endpoints.
-            val commits = apiClient.getPullRequestCommits(
-                pullRequest.pullRequestId,
-                projectIdOrName,
-                repositoryId
-            )
+            val commits = try {
+                apiClient.getPullRequestCommits(
+                    pullRequest.pullRequestId,
+                    projectIdOrName,
+                    repositoryId
+                )
+            } catch (e: Exception) {
+                logger.warn("Failed to load PR commits: ${e.message}")
+                emptyList()
+            }
             commitCount = commits.size
             ApplicationManager.getApplication().invokeLater {
                 findComponentByName(this, "commitCountLabel")?.let {
