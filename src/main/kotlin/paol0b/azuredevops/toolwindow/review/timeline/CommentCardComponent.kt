@@ -9,7 +9,6 @@ import com.intellij.util.ui.UIUtil
 import paol0b.azuredevops.model.PullRequest
 import paol0b.azuredevops.model.ThreadStatus
 import paol0b.azuredevops.services.AvatarService
-import paol0b.azuredevops.toolwindow.review.ReviewCommentInput
 import java.awt.*
 import java.awt.geom.RoundRectangle2D
 import javax.swing.*
@@ -227,11 +226,14 @@ class CommentCardComponent(
             maximumSize = Dimension(Int.MAX_VALUE, 36)
         }
 
-        val field = ReviewCommentInput(
-            project = project,
-            oneLineMode = true,
-            placeholder = "Write a reply..."
-        )
+        val field = JTextField().apply {
+            border = BorderFactory.createCompoundBorder(
+                BorderFactory.createLineBorder(TimelineTheme.CARD_BORDER, 1, true),
+                JBUI.Borders.empty(6, 10)
+            )
+            font = UIUtil.getLabelFont().deriveFont(12f)
+            putClientProperty("JTextField.placeholderText", "Write a reply\u2026")
+        }
 
         val sendBtn = object : JButton("Reply") {
             init {
@@ -268,7 +270,7 @@ class CommentCardComponent(
                 field.text = ""
             }
         }
-        field.registerSubmitShortcut { sendBtn.doClick() }
+        field.addActionListener { sendBtn.doClick() }
 
         panel.add(field, BorderLayout.CENTER)
         panel.add(sendBtn, BorderLayout.EAST)
