@@ -1,7 +1,7 @@
-# Azure DevOps Integration — focused 4.1 fork
+# Azure DevOps Integration — focused 4.2 fork
 
-This branch is based on upstream tag `4.1` and produces plugin version
-`4.1.1-focused.1`.
+This branch includes upstream tag `4.2` and produces plugin version
+`4.2-focused.1`.
 
 ## Changes
 
@@ -14,9 +14,14 @@ This branch is based on upstream tag `4.1` and produces plugin version
 - **Review requests** uses the reviewer assignment query and keeps PRs where
   the current user's vote is still zero or absent. Group assignments remain
   visible.
-- Existing file-scoped PR comments are shown as persistent cards below their
-  diff line. Clicking a card or its gutter bubble opens the existing thread UI
-  for reply and Resolve.
+- Existing file-scoped PR comments use the plugin's gutter bubble and thread
+  popup. Their Azure DevOps diff-side position is resolved correctly.
+- Inline comment and reply editors support Windows IME input, Ctrl+Enter
+  submission, and multiline comment ranges.
+- Different PR files can remain open in separate editor tabs.
+- Users can delete comments they authored, subject to Azure DevOps permissions.
+- Changed files remain visible when optional comment, commit, or policy requests
+  fail.
 - Azure's common response shape where line positions are in `threadContext`
   and iteration metadata is in `pullRequestThreadContext` is handled correctly.
 - The explicit all-organization quick filter is labelled `Open (all
@@ -34,7 +39,7 @@ Maven Central, and JetBrains IntelliJ repositories:
 ```
 
 The installable file is written to
-`build/distributions/AzureDevOps-4.1.1-focused.1.zip`.
+`build/distributions/AzureDevOps-4.2-focused.1.zip`.
 
 The project targets IntelliJ IDEA 2025.3 (`since-build 253`). In IntelliJ,
 install it with **Settings → Plugins → gear → Install Plugin from Disk**.

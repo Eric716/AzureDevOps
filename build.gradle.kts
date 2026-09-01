@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "paol0b"
-version = "4.1.1-focused.1"
+version = "4.2-focused.1"
 
 repositories {
     mavenCentral()
@@ -39,11 +39,24 @@ intellijPlatform {
         }
 
         changeNotes = """
-            <h2>Version 4.1.1-focused.1 - Focused PR Review</h2>
+            <h2>Version 4.2-focused.1 - Focused PR Review</h2>
             <ul>
                 <li><b>Relevant to me by default</b> – Fetches PRs created by or assigned to the current user using Azure DevOps server-side criteria.</li>
                 <li><b>Correct assignment filters</b> – "Assigned to you" no longer means "already reviewed"; "Review requests" shows assignments that still need your vote.</li>
-                <li><b>Visible inline threads</b> – Existing PR comments render as persistent cards below their diff lines and open for reply/resolve when clicked.</li>
+                <li><b>Reliable inline review</b> – Fixes existing thread positions, Windows IME input, multiline ranges, multiple diff tabs, and deletion of comments authored by the current user.</li>
+                <li><b>Resilient file loading</b> – Keeps changed files visible when optional PR enrichment requests fail.</li>
+            </ul>
+
+            <hr>
+
+            <h2>Version 4.2 - PR List Pagination &amp; Project Filtering</h2>
+
+            <h3>New Features</h3>
+            <ul>
+                <li><b>Configurable PR list loading</b> – Page size (PRs per request) and maximum PRs in list are now exposed in the plugin settings, with bounds matching the API client clamps.</li>
+                <li><b>Multi-select project filter</b> – The PR filter panel preloads the project list and lets you scope the view to several projects at once; the selection is persisted across restarts.</li>
+                <li><b>Project-scoped PR fetching</b> – With a project filter active only the selected projects are queried, instead of the whole organization.</li>
+                <li><b>Copy PR Link</b> – New context-menu action in the Pull Requests list that copies the PR web URL to the clipboard.</li>
             </ul>
 
             <hr>
