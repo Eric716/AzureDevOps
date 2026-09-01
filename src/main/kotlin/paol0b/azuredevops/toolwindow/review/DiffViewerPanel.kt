@@ -192,7 +192,7 @@ class DiffViewerPanel(
         if (filePath.isNullOrBlank()) return
 
         val isBase = editor.document == baseDocument
-        val lineNumber = line0based + 1 // API uses 1-based
+        val lineRange = resolveCommentLineRange(editor, line0based)
 
         // We need a reference to the popup so callbacks can dismiss it.
         // Use a holder so the lambda can capture it before the popup is built.
@@ -203,7 +203,7 @@ class DiffViewerPanel(
             apiClient = apiClient,
             pullRequestId = pullRequestId,
             filePath = filePath,
-            lineNumber = lineNumber,
+            lineRange = lineRange,
             isLeftSide = isBase,
             projectName = externalProjectName,
             repositoryId = externalRepositoryId,
@@ -230,6 +230,22 @@ class DiffViewerPanel(
         // Position below the target line
         val lineY = editor.logicalPositionToXY(LogicalPosition(line0based + 1, 0))
         popup.show(RelativePoint(editor.contentComponent, Point(40, lineY.y)))
+    }
+
+    /**
+     * Uses the editor selection only when the clicked gutter line belongs to it.
+     * Selection end offsets are exclusive, so a selection ending at the start of the
+     * next line must not accidentally include that line in the Azure thread context.
+     */
+    private fun resolveCommentLineRange(editor: Editor, clickedLine0based: Int): CommentLineRange {
+        val clickedLine = clickedLine0based + 1
+        val selection = editor.selectionModel
+        if (!selection.hasSelection()) return CommentLineRange(clickedLine, clickedLine)
+
+        val selectionStartLine = editor.document.getLineNumber(selection.selectionStart) + 1
+        val inclusiveEndOffset = (selection.selectionEnd - 1).coerceAtLeast(selection.selectionStart)
+        val selectionEndLine = editor.document.getLineNumber(inclusiveEndOffset) + 1
+        return CommentLineRange.fromSelection(clickedLine, selectionStartLine, selectionEndLine)
     }
 
     // ==================================================================
