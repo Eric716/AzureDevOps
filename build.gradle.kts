@@ -5,7 +5,7 @@ plugins {
 }
 
 group = "paol0b"
-version = "4.1"
+version = "4.2"
 
 repositories {
     mavenCentral()
@@ -39,6 +39,18 @@ intellijPlatform {
         }
 
         changeNotes = """
+            <h2>Version 4.2 - PR List Pagination &amp; Project Filtering</h2>
+
+            <h3>New Features</h3>
+            <ul>
+                <li><b>Configurable PR list loading</b> – Page size (PRs per request) and maximum PRs in list are now exposed in the plugin settings, with bounds matching the API client clamps.</li>
+                <li><b>Multi-select project filter</b> – The PR filter panel preloads the project list and lets you scope the view to several projects at once; the selection is persisted across restarts.</li>
+                <li><b>Project-scoped PR fetching</b> – With a project filter active only the selected projects are queried, instead of the whole organization.</li>
+                <li><b>Copy PR Link</b> – New context-menu action in the Pull Requests list that copies the PR web URL to the clipboard.</li>
+            </ul>
+
+            <hr>
+
             <h2>Version 4.1 - Clone Dialog Overhaul</h2>
 
             <h3>Performance</h3>
