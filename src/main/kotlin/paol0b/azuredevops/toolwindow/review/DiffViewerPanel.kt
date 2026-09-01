@@ -234,8 +234,8 @@ class DiffViewerPanel(
 
     /**
      * Uses the editor selection only when the clicked gutter line belongs to it.
-     * Selection end offsets are exclusive, so a selection ending at the start of the
-     * next line must not accidentally include that line in the Azure thread context.
+     * Diff line selections can end at the first offset of the visually selected final line,
+     * so preserve the end offset's line instead of subtracting one and dropping that line.
      */
     private fun resolveCommentLineRange(editor: Editor, clickedLine0based: Int): CommentLineRange {
         val clickedLine = clickedLine0based + 1
@@ -243,8 +243,7 @@ class DiffViewerPanel(
         if (!selection.hasSelection()) return CommentLineRange(clickedLine, clickedLine)
 
         val selectionStartLine = editor.document.getLineNumber(selection.selectionStart) + 1
-        val inclusiveEndOffset = (selection.selectionEnd - 1).coerceAtLeast(selection.selectionStart)
-        val selectionEndLine = editor.document.getLineNumber(inclusiveEndOffset) + 1
+        val selectionEndLine = editor.document.getLineNumber(selection.selectionEnd) + 1
         return CommentLineRange.fromSelection(clickedLine, selectionStartLine, selectionEndLine)
     }
 
